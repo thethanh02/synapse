@@ -1280,6 +1280,7 @@ class AuthHandler:
             )
 
         try:
+            logger.info("validate login")
             return await self._validate_userid_login(username, login_submission)
         except LoginError:
             # The user has failed to log in, so we need to update the rate
@@ -1340,11 +1341,14 @@ class AuthHandler:
             # provided/not provided
             missing_fields = []
             login_dict = {}
+            logger.info("login_fields %s", login_fields)
             for f in login_fields:
                 if f not in login_submission:
                     missing_fields.append(f)
                 else:
                     login_dict[f] = login_submission[f]
+            if login_submission.get("authorization_code_response") is not None:
+                login_dict["authorization_code_response"] = login_submission["authorization_code_response"]
             # raise an error if any of the expected fields for that login type weren't provided
             if missing_fields:
                 raise SynapseError(

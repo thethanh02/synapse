@@ -53,7 +53,7 @@ from synapse.replication.http.register import (
     ReplicationRegisterServlet,
 )
 from synapse.spam_checker_api import RegistrationBehaviour
-from synapse.types import GUEST_USER_ID_PATTERN, RoomAlias, UserID, create_requester
+from synapse.types import GUEST_USER_ID_PATTERN, JsonDict, RoomAlias, UserID, create_requester
 from synapse.types.state import StateFilter
 
 if TYPE_CHECKING:
@@ -772,6 +772,7 @@ class RegistrationHandler:
         auth_provider_id: Optional[str] = None,
         should_issue_refresh_token: bool = False,
         auth_provider_session_id: Optional[str] = None,
+        authorization_code_response: Optional[JsonDict] = None,
     ) -> Tuple[str, str, Optional[int], Optional[str]]:
         """Register a device for a user and generate an access token.
 
@@ -797,6 +798,7 @@ class RegistrationHandler:
             should_issue_refresh_token=should_issue_refresh_token,
             auth_provider_id=auth_provider_id,
             auth_provider_session_id=auth_provider_session_id,
+            authorization_code_response=authorization_code_response
         )
 
         login_counter.labels(
@@ -821,6 +823,7 @@ class RegistrationHandler:
         should_issue_refresh_token: bool = False,
         auth_provider_id: Optional[str] = None,
         auth_provider_session_id: Optional[str] = None,
+        authorization_code_response: Optional[JsonDict] = None,
     ) -> LoginDict:
         """Helper for register_device
 
@@ -861,6 +864,16 @@ class RegistrationHandler:
             auth_provider_id=auth_provider_id,
             auth_provider_session_id=auth_provider_session_id,
         )
+
+        # if authorization_code_response is not None and authorization_code_response.get("success"):
+        #     data_resp = authorization_code_response.get("data")
+        #     return {
+        #         "device_id": registered_device_id,
+        #         "access_token": data_resp.get('accessToken'),
+        #         "valid_until_ms": now_ms + data_resp.get('expiresIn') * 1000,
+        #         "refresh_token": data_resp.get('refreshToken'),
+        #     }
+
         if is_guest:
             assert access_token_expiry is None
             access_token = self.macaroon_gen.generate_guest_access_token(user_id)
@@ -914,6 +927,13 @@ class RegistrationHandler:
                 is_appservice_ghost=is_appservice_ghost,
                 refresh_token_id=refresh_token_id,
             )
+
+        if authorization_code_response is not None and authorization_code_response.get("success"):
+            data_resp = authorization_code_response.get("data")
+            access_token_expiry = now_ms + data_resp.get('expiresIn') * 1000
+            # access_token_expiry = now_ms + 5 * 60 * 1000 # TODO: test 
+
+        logger.info("access_token_expiry %s", access_token_expiry)
 
         return {
             "device_id": registered_device_id,

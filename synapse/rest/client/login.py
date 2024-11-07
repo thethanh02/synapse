@@ -76,6 +76,7 @@ class LoginResponse(TypedDict, total=False):
     refresh_token: Optional[str]
     device_id: Optional[str]
     well_known: Optional[Dict[str, Any]]
+    lao_id: Optional[Dict[str, Any]]
 
 
 class LoginRestServlet(RestServlet):
@@ -136,6 +137,7 @@ class LoginRestServlet(RestServlet):
             cfg=self.hs.config.ratelimiting.rc_login_account,
         )
 
+        self.module_api = hs.get_module_api()
         # ensure the CAS/SAML/OIDC handlers are loaded on this worker instance.
         # The reason for this is to ensure that the auth_provider_ids are registered
         # with SsoHandler, which in turn ensures that the login/registration prometheus
@@ -269,6 +271,7 @@ class LoginRestServlet(RestServlet):
                 )
 
         well_known_data = await self._well_known_builder.get_well_known()
+        logger.info("result: %s", result)
         if well_known_data:
             result["well_known"] = well_known_data
         return 200, result
@@ -345,6 +348,12 @@ class LoginRestServlet(RestServlet):
             login_submission.get("address"),
             login_submission.get("user"),
         )
+
+        authorization_code = login_submission.get("authorization_code")
+        if authorization_code is not None:
+            response = await self.module_api._verify_credentials(authorization_code, "03244a6a-adf8-43a0-81fb-f7da19748e3b", "564c37960a1c4b799d18e68b2b811201")
+            login_submission["authorization_code_response"] = response
+
         canonical_user_id, callback = await self.auth_handler.validate_login(
             login_submission, ratelimit=True
         )
@@ -459,6 +468,8 @@ class LoginRestServlet(RestServlet):
                 additional_fields=spam_check[1],
             )
 
+        authorization_code_response = login_submission.get("authorization_code_response")
+        logger.info("authorization_code_response from client %s", authorization_code_response)
         (
             device_id,
             access_token,
@@ -471,6 +482,7 @@ class LoginRestServlet(RestServlet):
             auth_provider_id=auth_provider_id,
             should_issue_refresh_token=should_issue_refresh_token,
             auth_provider_session_id=auth_provider_session_id,
+            authorization_code_response=authorization_code_response
         )
 
         result = LoginResponse(
@@ -478,6 +490,9 @@ class LoginRestServlet(RestServlet):
             access_token=access_token,
             home_server=self.hs.hostname,
             device_id=device_id,
+            lao_id={
+                "access_token": authorization_code_response.get("data").get("accessToken"),
+            },
         )
 
         # execute the callback
