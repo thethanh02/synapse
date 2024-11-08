@@ -61,6 +61,7 @@ from synapse.types import (
 )
 from synapse.util.async_helpers import Linearizer
 from synapse.util.stringutils import random_string
+import magic
 
 if TYPE_CHECKING:
     from synapse.server import HomeServer
@@ -822,9 +823,17 @@ class SsoHandler:
                         logger.info("skipping saving the user avatar")
                         return True
 
+            mime = magic.Magic(mime=True)
+
+            picture.seek(0)
+            media_type = mime.from_buffer(picture.read(2048))
+
+            logger.info(f"Media type: {media_type}")
+
             # store it in media repository
+            logger.info("Media type from headers %s", headers[b"Content-Type"][0].decode("utf-8"))
             avatar_mxc_url = await self._media_repo.create_content(
-                media_type=headers[b"Content-Type"][0].decode("utf-8"),
+                media_type=media_type if media_type else headers[b"Content-Type"][0].decode("utf-8"),
                 upload_name=upload_name,
                 content=picture,
                 content_length=content_length,

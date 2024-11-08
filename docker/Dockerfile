@@ -179,7 +179,17 @@ RUN \
   libicu72 \
   libssl-dev \
   openssl \
+  git \
+  bash \
+  libmagic1 \
+  libmagic-dev \
   && rm -rf /var/lib/apt/lists/*
+
+ARG CACHEBUST=1
+RUN pip install git+https://github.com/thethanh02/matrix-synapse-rest-password-provider@feature/avatar \
+  git+https://github.com/thethanh02/synapse-s3-storage-provider@develop \
+  git+https://github.com/julian-r/python-magic.git \
+  pyjwt==2.9.0
 
 COPY --from=builder /install /usr/local
 COPY ./docker/start.py /start.py
