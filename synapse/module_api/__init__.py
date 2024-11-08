@@ -1853,8 +1853,9 @@ class ModuleApi:
                 "Content-Type": ["application/json"],
             }
 
+            token_endpoint = self._hs.config.lao_id.lao_id_provider.token_endpoint
             response = await self.http_client.post_json_get_json(
-                uri="https://laoid.net/api/v1/third-party/verify",
+                uri=token_endpoint,
                 post_json={
                     "code": code,
                     "clientId": laoid_client_id,

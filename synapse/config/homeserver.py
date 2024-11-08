@@ -40,6 +40,7 @@ from .metrics import MetricsConfig
 from .modules import ModulesConfig
 from .oembed import OembedConfig
 from .oidc import OIDCConfig
+from .lao_id import LaoIDConfig
 from .password_auth_providers import PasswordAuthProviderConfig
 from .push import PushConfig
 from .ratelimiting import RatelimitConfig
@@ -86,6 +87,7 @@ class HomeServerConfig(RootConfig):
         KeyConfig,
         SAML2Config,
         OIDCConfig,
+        LaoIDConfig,
         CasConfig,
         SSOConfig,
         JWTConfig,

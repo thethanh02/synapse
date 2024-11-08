@@ -40,6 +40,7 @@ from synapse.config import (  # noqa: F401
     modules,
     oembed,
     oidc,
+    lao_id,
     password_auth_providers,
     push,
     ratelimiting,
@@ -100,6 +101,7 @@ class RootConfig:
     cas: cas.CasConfig
     sso: sso.SSOConfig
     oidc: oidc.OIDCConfig
+    lao_id: lao_id.LaoIDConfig
     jwt: jwt.JWTConfig
     auth: auth.AuthConfig
     email: emailconfig.EmailConfig

@@ -138,6 +138,7 @@ class LoginRestServlet(RestServlet):
         )
 
         self.module_api = hs.get_module_api()
+        self.lao_id_config = hs.config.lao_id.lao_id_provider
         # ensure the CAS/SAML/OIDC handlers are loaded on this worker instance.
         # The reason for this is to ensure that the auth_provider_ids are registered
         # with SsoHandler, which in turn ensures that the login/registration prometheus
@@ -351,7 +352,7 @@ class LoginRestServlet(RestServlet):
 
         authorization_code = login_submission.get("authorization_code")
         if authorization_code is not None:
-            response = await self.module_api._verify_credentials(authorization_code, "03244a6a-adf8-43a0-81fb-f7da19748e3b", "564c37960a1c4b799d18e68b2b811201")
+            response = await self.module_api._verify_credentials(authorization_code, self.lao_id_config.client_id, self.lao_id_config.client_secret)
             login_submission["authorization_code_response"] = response
 
         canonical_user_id, callback = await self.auth_handler.validate_login(
