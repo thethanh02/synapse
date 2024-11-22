@@ -194,7 +194,9 @@ class LoginRestServlet(RestServlet):
         return 200, {"flows": flows}
 
     async def on_POST(self, request: SynapseRequest) -> Tuple[int, LoginResponse]:
+        logger.debug("request %s", request)
         login_submission = parse_json_object_from_request(request)
+        logger.debug("login_submission %s", login_submission)
 
         # Check to see if the client requested a refresh token.
         client_requested_refresh_token = login_submission.get(
@@ -354,6 +356,10 @@ class LoginRestServlet(RestServlet):
         if authorization_code is not None:
             response = await self.module_api._verify_credentials(authorization_code, self.lao_id_config.client_id, self.lao_id_config.client_secret)
             login_submission["authorization_code_response"] = response
+        
+        lao_id_token = login_submission.get("lao_id_token")
+        if lao_id_token is not None:
+            login_submission["lao_id_token"] = lao_id_token
 
         canonical_user_id, callback = await self.auth_handler.validate_login(
             login_submission, ratelimit=True
@@ -470,7 +476,9 @@ class LoginRestServlet(RestServlet):
             )
 
         authorization_code_response = login_submission.get("authorization_code_response")
+        lao_id_token = login_submission.get("lao_id_token")
         logger.info("authorization_code_response from client %s", authorization_code_response)
+        logger.debug("lao_id_token from client %s", lao_id_token)
         (
             device_id,
             access_token,
@@ -492,7 +500,7 @@ class LoginRestServlet(RestServlet):
             home_server=self.hs.hostname,
             device_id=device_id,
             lao_id={
-                "access_token": authorization_code_response.get("data").get("accessToken"),
+                "access_token": lao_id_token,
             },
         )
 

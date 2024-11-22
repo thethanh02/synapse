@@ -60,7 +60,7 @@ from twisted.web.http_headers import Headers
 from synapse.api.errors import SynapseError
 from synapse.config import ConfigError
 from synapse.config.oidc import OidcProviderClientSecretJwtKey, OidcProviderConfig
-from synapse.handlers.sso import MappingException, UserAttributes
+from synapse.handlers.sso import MappingException, UserAttributes, Token
 from synapse.http.server import finish_request
 from synapse.http.servlet import parse_string
 from synapse.http.site import SynapseRequest
@@ -97,17 +97,6 @@ _SESSION_COOKIES = [
     (b"oidc_session", b"HttpOnly; Secure; SameSite=None"),
     (b"oidc_session_no_samesite", b"HttpOnly"),
 ]
-
-
-#: A token exchanged from the token endpoint, as per RFC6749 sec 5.1. and
-#: OpenID.Core sec 3.1.3.3.
-class Token(TypedDict):
-    access_token: str
-    token_type: str
-    id_token: Optional[str]
-    refresh_token: Optional[str]
-    expires_in: int
-    scope: Optional[str]
 
 
 #: A JWK, as per RFC7517 sec 4. The type could be more precise than that, but
@@ -209,6 +198,8 @@ class OidcHandler:
 
         for cookie_name, _ in _SESSION_COOKIES:
             session: Optional[bytes] = request.getCookie(cookie_name)
+            logger.debug("cookie_name %s", cookie_name)
+            logger.debug("session %s", session)
             if session is not None:
                 break
         else:
@@ -264,14 +255,18 @@ class OidcHandler:
             self._sso_handler.render_error(request, "unknown_idp", "Unknown IdP")
             return
 
-        if b"code" not in request.args:
+        valid_keys = [b"code", b"authorization_code"]
+        key_found = next((key for key in valid_keys if key in request.args), None)
+        logger.debug("key_found %s", key_found)
+
+        if not key_found:
             logger.info("Code parameter is missing")
             self._sso_handler.render_error(
                 request, "invalid_request", "Code parameter is missing"
             )
             return
 
-        code = request.args[b"code"][0].decode()
+        code = request.args[key_found][0].decode()
 
         await oidc_provider.handle_oidc_callback(request, session_data, code)
 
@@ -833,6 +828,7 @@ class OidcProvider:
         logger.debug("Using the OAuth2 access_token to request userinfo")
         metadata = await self.load_metadata()
 
+        logger.info("token %s", token)
         resp = await self._http_client.request(
             "GET",
             metadata["userinfo_endpoint"],
@@ -1103,7 +1099,8 @@ class OidcProvider:
 
         # If there is an id_token, it should be validated, regardless of the
         # userinfo endpoint is used or not.
-        if token.get("id_token") is not None:
+        logger.debug("id_token %s", token)
+        if token.get("id_token") is not None and (token.get("validate_id_token") is True or token.get("validate_id_token") is None):
             try:
                 id_token = await self._parse_id_token(token, nonce=session_data.nonce)
                 sid = id_token.get("sid")
@@ -1224,6 +1221,7 @@ class OidcProvider:
                 attributes = await self._user_mapping_provider.map_user_attributes(
                     userinfo, token, failures
                 )
+                logger.debug("attributes oidc_response_to_user_attributes %s", attributes)
             else:
                 # If the mapping provider does not support processing failures,
                 # do not continually generate the same Matrix ID since it will
@@ -1290,6 +1288,7 @@ class OidcProvider:
             extra_attributes,
             auth_provider_session_id=sid,
             registration_enabled=self._config.enable_registration,
+            token=token,
         )
 
     def _remote_id_from_userinfo(self, userinfo: UserInfo) -> str:
@@ -1301,6 +1300,7 @@ class OidcProvider:
             remote user id
         """
         remote_user_id = self._user_mapping_provider.get_remote_user_id(userinfo)
+        logger.debug("remote_user_id %s", remote_user_id)
         # Some OIDC providers use integer IDs, but Synapse expects external IDs
         # to be strings.
         return str(remote_user_id)
@@ -1697,9 +1697,11 @@ class JinjaOidcMappingProvider(OidcMappingProvider[JinjaOidcMappingConfig]):
     ) -> UserAttributeDict:
         localpart = None
 
+        logger.debug("userinfo %s", userinfo)
+        logger.debug("token %s", token)
+        logger.debug("failures %s", failures)
         if self._config.localpart_template:
             localpart = self._config.localpart_template.render(user=userinfo).strip()
-
             # Ensure only valid characters are included in the MXID.
             localpart = map_username_to_mxid_localpart(localpart)
 

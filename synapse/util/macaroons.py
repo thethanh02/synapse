@@ -30,6 +30,8 @@ from pymacaroons.exceptions import MacaroonVerificationFailedException
 from typing_extensions import Literal
 
 from synapse.util import Clock, stringutils
+import logging
+logger = logging.getLogger(__name__)
 
 MacaroonType = Literal["access", "delete_pusher", "session"]
 
@@ -283,6 +285,7 @@ class MacaroonGenerator:
         """
         macaroon = pymacaroons.Macaroon.deserialize(session)
 
+        logger.debug(f"state = {state}")
         v = self._base_verifier("session")
         v.satisfy_exact(f"state = {state}")
         v.satisfy_general(lambda c: c.startswith("nonce = "))
@@ -300,6 +303,11 @@ class MacaroonGenerator:
         client_redirect_url = get_value_from_macaroon(macaroon, "client_redirect_url")
         ui_auth_session_id = get_value_from_macaroon(macaroon, "ui_auth_session_id")
         code_verifier = get_value_from_macaroon(macaroon, "code_verifier")
+        logger.debug(f"nonce = {nonce}")
+        logger.debug(f"idp_id = {idp_id}")
+        logger.debug(f"client_redirect_url = {client_redirect_url}")
+        logger.debug(f"ui_auth_session_id = {ui_auth_session_id}")
+        logger.debug(f"code_verifier = {code_verifier}")
         return OidcSessionData(
             nonce=nonce,
             idp_id=idp_id,

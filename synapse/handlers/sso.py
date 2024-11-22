@@ -38,7 +38,7 @@ from typing import (
 from urllib.parse import urlencode
 
 import attr
-from typing_extensions import Protocol
+from typing_extensions import Protocol, TypedDict
 
 from twisted.web.iweb import IRequest
 from twisted.web.server import Request
@@ -67,6 +67,17 @@ if TYPE_CHECKING:
     from synapse.server import HomeServer
 
 logger = logging.getLogger(__name__)
+
+
+#: A token exchanged from the token endpoint, as per RFC6749 sec 5.1. and
+#: OpenID.Core sec 3.1.3.3.
+class Token(TypedDict):
+    access_token: str
+    token_type: str
+    id_token: Optional[str]
+    refresh_token: Optional[str]
+    expires_in: int
+    scope: Optional[str]
 
 
 class MappingException(Exception):
@@ -396,6 +407,7 @@ class SsoHandler:
         extra_login_attributes: Optional[JsonDict] = None,
         auth_provider_session_id: Optional[str] = None,
         registration_enabled: bool = True,
+        token: Optional[Token] = None,
     ) -> None:
         """
         Given an SSO ID, retrieve the user ID for it and possibly register the user.
@@ -490,7 +502,7 @@ class SsoHandler:
                 )
             elif not user_id:  # Otherwise, generate a new user.
                 attributes = await self._call_attribute_mapper(sso_to_matrix_id_mapper)
-
+                logger.debug("attributes in complete func elif not user_id %s", attributes)
                 next_step_url = self._get_url_for_next_new_user_step(
                     attributes=attributes
                 )
@@ -515,6 +527,7 @@ class SsoHandler:
                 new_user = True
             elif self._sso_update_profile_information:
                 attributes = await self._call_attribute_mapper(sso_to_matrix_id_mapper)
+                logger.debug("attributes in complete func elif self._sso_update_profile_information %s", attributes)
                 if attributes.display_name:
                     user_id_obj = UserID.from_string(user_id)
                     profile_display_name = await self._profile_handler.get_displayname(
@@ -539,6 +552,7 @@ class SsoHandler:
             extra_login_attributes,
             new_user=new_user,
             auth_provider_session_id=auth_provider_session_id,
+            token=token,
         )
 
     async def _call_attribute_mapper(
@@ -546,9 +560,11 @@ class SsoHandler:
         sso_to_matrix_id_mapper: Callable[[int], Awaitable[UserAttributes]],
     ) -> UserAttributes:
         """Call the attribute mapper function in a loop, until we get a unique userid"""
+        logger.debug("sso_to_matrix_id_mapper %s", sso_to_matrix_id_mapper)
         for i in range(self._MAP_USERNAME_RETRIES):
             try:
                 attributes = await sso_to_matrix_id_mapper(i)
+                logger.debug("attributes _call_attribute_mapper %s", attributes)
             except (RedirectException, MappingException):
                 # Mapping providers are allowed to issue a redirect (e.g. to ask
                 # the user for more information) and can issue a mapping exception
@@ -724,6 +740,7 @@ class SsoHandler:
 
         # Since the localpart is provided via a potentially untrusted module,
         # ensure the MXID is valid before registering.
+        logger.debug("attributes %s", attributes)
         if not attributes.localpart or contains_invalid_mxid_characters(
             attributes.localpart
         ):

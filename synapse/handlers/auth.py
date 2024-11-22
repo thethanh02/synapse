@@ -82,6 +82,7 @@ from synapse.util.async_helpers import delay_cancellation, maybe_awaitable
 from synapse.util.msisdn import phone_number_to_msisdn
 from synapse.util.stringutils import base62_encode
 from synapse.util.threepids import canonicalise_email
+from synapse.handlers.sso import Token
 
 if TYPE_CHECKING:
     from synapse.module_api import ModuleApi
@@ -1740,6 +1741,7 @@ class AuthHandler:
         extra_attributes: Optional[JsonDict] = None,
         new_user: bool = False,
         auth_provider_session_id: Optional[str] = None,
+        token: Optional[Token] = None,
     ) -> None:
         """Having figured out a mxid for this user, complete the HTTP request
 
@@ -1794,6 +1796,12 @@ class AuthHandler:
             client_redirect_url, "loginToken", login_token
         )
 
+        logger.debug("auth_provider_id %s", auth_provider_id)
+        if auth_provider_id == "oidc-laoid":
+            redirect_url = self.add_query_param_to_url(
+                redirect_url, "laoIdToken", token.get("access_token") or None
+            )
+
         # Run post-login module callback handlers
         await self._account_validity_handler.on_user_login(
             user_id=registered_user_id,
@@ -1826,6 +1834,7 @@ class AuthHandler:
                 (url_parts.scheme, url_parts.netloc, url_parts.path, "", "")
             )
 
+        logger.debug("redirect_url %s", redirect_url)
         html = self._sso_redirect_confirm_template.render(
             display_url=display_url,
             redirect_url=redirect_url,
