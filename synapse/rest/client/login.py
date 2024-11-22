@@ -137,8 +137,6 @@ class LoginRestServlet(RestServlet):
             cfg=self.hs.config.ratelimiting.rc_login_account,
         )
 
-        self.module_api = hs.get_module_api()
-        self.lao_id_config = hs.config.lao_id.lao_id_provider
         # ensure the CAS/SAML/OIDC handlers are loaded on this worker instance.
         # The reason for this is to ensure that the auth_provider_ids are registered
         # with SsoHandler, which in turn ensures that the login/registration prometheus
@@ -274,7 +272,7 @@ class LoginRestServlet(RestServlet):
                 )
 
         well_known_data = await self._well_known_builder.get_well_known()
-        logger.info("result: %s", result)
+        logger.debug("result: %s", result)
         if well_known_data:
             result["well_known"] = well_known_data
         return 200, result
@@ -351,11 +349,6 @@ class LoginRestServlet(RestServlet):
             login_submission.get("address"),
             login_submission.get("user"),
         )
-
-        authorization_code = login_submission.get("authorization_code")
-        if authorization_code is not None:
-            response = await self.module_api._verify_credentials(authorization_code, self.lao_id_config.client_id, self.lao_id_config.client_secret)
-            login_submission["authorization_code_response"] = response
         
         lao_id_token = login_submission.get("lao_id_token")
         if lao_id_token is not None:
@@ -475,9 +468,7 @@ class LoginRestServlet(RestServlet):
                 additional_fields=spam_check[1],
             )
 
-        authorization_code_response = login_submission.get("authorization_code_response")
         lao_id_token = login_submission.get("lao_id_token")
-        logger.info("authorization_code_response from client %s", authorization_code_response)
         logger.debug("lao_id_token from client %s", lao_id_token)
         (
             device_id,
@@ -491,7 +482,6 @@ class LoginRestServlet(RestServlet):
             auth_provider_id=auth_provider_id,
             should_issue_refresh_token=should_issue_refresh_token,
             auth_provider_session_id=auth_provider_session_id,
-            authorization_code_response=authorization_code_response
         )
 
         result = LoginResponse(

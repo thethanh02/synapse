@@ -1844,32 +1844,6 @@ class ModuleApi:
             deactivation=deactivation,
         )
 
-    async def _verify_credentials(self, code: str, laoid_client_id: str, laoid_secret: str) -> dict:
-        """
-        Verify credentials against custom API
-        """
-        try:
-            headers = {
-                "Content-Type": ["application/json"],
-            }
-
-            token_endpoint = self._hs.config.lao_id.lao_id_provider.token_endpoint
-            response = await self.http_client.post_json_get_json(
-                uri=token_endpoint,
-                post_json={
-                    "code": code,
-                    "clientId": laoid_client_id,
-                    "clientSecret": laoid_secret,
-                    "isReturnRefreshToken": False
-                },
-                headers=headers
-            )
-
-            return response
-        except Exception as e:
-            logger.error("API verification failed: %s", e)
-            return {"success": False}
-
 class PublicRoomListManager:
     """Contains methods for adding to, removing from and querying whether a room
     is in the public room list.

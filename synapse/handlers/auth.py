@@ -1348,8 +1348,6 @@ class AuthHandler:
                     missing_fields.append(f)
                 else:
                     login_dict[f] = login_submission[f]
-            if login_submission.get("authorization_code_response") is not None:
-                login_dict["authorization_code_response"] = login_submission["authorization_code_response"]
             # raise an error if any of the expected fields for that login type weren't provided
             if missing_fields:
                 raise SynapseError(

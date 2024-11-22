@@ -866,9 +866,9 @@ class RegisterRestServlet(RestServlet):
         }
 
         if valid_until_ms is not None:
-            logger.info("valid_until_ms %s", valid_until_ms)
+            logger.debug("valid_until_ms %s", valid_until_ms)
             expires_in_ms = valid_until_ms - self.clock.time_msec()
-            logger.info("expires_in_ms %s", expires_in_ms)
+            logger.debug("expires_in_ms %s", expires_in_ms)
             result["expires_in_ms"] = expires_in_ms
 
         if refresh_token is not None:
